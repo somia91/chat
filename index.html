@@ -123,9 +123,48 @@
             <p class="text-gray-600">مراسلة فورية مع مكالمات صوتية ومرئية</p>
         </div>
 
-        <div>
+        <!-- Google Sign-In Section -->
+        <div id="signInSection" class="mb-6">
+            <div class="text-center mb-4">
+                <p class="text-gray-700 mb-4">سجل دخولك للمزامنة الحقيقية:</p>
+                <div id="g_id_onload"
+                     data-client_id="YOUR_GOOGLE_CLIENT_ID"
+                     data-context="signin"
+                     data-ux_mode="popup"
+                     data-callback="handleCredentialResponse"
+                     data-auto_prompt="false">
+                </div>
+
+                <div class="g_id_signin"
+                     data-type="standard"
+                     data-shape="rectangular"
+                     data-theme="outline"
+                     data-text="signin_with"
+                     data-size="large"
+                     data-logo_alignment="left">
+                </div>
+
+                <!-- Fallback button -->
+                <button onclick="signInWithGoogle()" class="btn btn-primary" style="background: #4285f4; margin-top: 10px;">
+                    🔐 تسجيل دخول بـ Google
+                </button>
+
+                <div class="text-center mt-4">
+                    <span class="text-gray-500">أو</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manual Name Entry (Fallback) -->
+        <div id="manualSection">
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                <p style="color: #856404; font-size: 14px; margin: 0;">
+                    ⚠️ <strong>وضع محلي:</strong> بدون تسجيل دخول، الرسائل لن تصل للآخرين
+                </p>
+            </div>
+
             <label class="text-gray-700 mb-2" style="display: block;">
-                اسمك
+                اسمك (وضع محلي)
             </label>
             <input
                 type="text"
@@ -166,17 +205,129 @@
         </div>
     </div>
 
+    <!-- Google Sign-In SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
     <script>
-        // Simple room management without Firebase
+        // Global variables
+        let currentUser = null;
+        let isSignedIn = false;
+
+        // Google Sign-In functions
+        function handleCredentialResponse(response) {
+            // Decode the JWT token
+            const responsePayload = decodeJwtResponse(response.credential);
+
+            currentUser = {
+                id: responsePayload.sub,
+                name: responsePayload.name,
+                email: responsePayload.email,
+                picture: responsePayload.picture
+            };
+
+            isSignedIn = true;
+
+            // Update UI
+            updateUIAfterSignIn();
+
+            console.log("تم تسجيل الدخول:", currentUser);
+        }
+
+        function decodeJwtResponse(token) {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            return JSON.parse(jsonPayload);
+        }
+
+        function signInWithGoogle() {
+            // Fallback method if the automatic button doesn't work
+            alert('يرجى استخدام زر Google Sign-In أعلاه، أو استخدم الوضع المحلي');
+        }
+
+        function updateUIAfterSignIn() {
+            // Hide sign-in section
+            document.getElementById('signInSection').style.display = 'none';
+
+            // Update manual section
+            const manualSection = document.getElementById('manualSection');
+            manualSection.innerHTML = `
+                <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <img src="${currentUser.picture}" alt="صورة المستخدم" style="width: 40px; height: 40px; border-radius: 50%;">
+                        <div>
+                            <p style="color: #155724; font-weight: bold; margin: 0;">${currentUser.name}</p>
+                            <p style="color: #155724; font-size: 12px; margin: 0;">${currentUser.email}</p>
+                        </div>
+                    </div>
+                    <p style="color: #155724; font-size: 14px; margin: 8px 0 0 0;">
+                        ✅ <strong>متصل:</strong> الرسائل ستصل للآخرين فوراً
+                    </p>
+                </div>
+
+                <button onclick="signOut()" style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px;">
+                    🚪 تسجيل خروج
+                </button>
+            `;
+        }
+
+        function signOut() {
+            google.accounts.id.disableAutoSelect();
+            currentUser = null;
+            isSignedIn = false;
+
+            // Reset UI
+            document.getElementById('signInSection').style.display = 'block';
+            document.getElementById('manualSection').innerHTML = `
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                    <p style="color: #856404; font-size: 14px; margin: 0;">
+                        ⚠️ <strong>وضع محلي:</strong> بدون تسجيل دخول، الرسائل لن تصل للآخرين
+                    </p>
+                </div>
+
+                <label class="text-gray-700 mb-2" style="display: block;">
+                    اسمك (وضع محلي)
+                </label>
+                <input
+                    type="text"
+                    id="userName"
+                    placeholder="أدخل اسمك"
+                    class="input"
+                />
+            `;
+        }
+
+        // Room management functions
         function generateRoomId() {
             return Math.random().toString(36).substring(2, 10);
         }
 
         function createRoom() {
-            const userName = document.getElementById('userName').value.trim();
-            if (!userName) {
-                alert('يرجى إدخال اسمك أولاً');
-                return;
+            let userName, userInfo;
+
+            if (isSignedIn && currentUser) {
+                // Use Google account info
+                userName = currentUser.name;
+                userInfo = {
+                    id: currentUser.id,
+                    name: currentUser.name,
+                    email: currentUser.email,
+                    picture: currentUser.picture,
+                    isSignedIn: true
+                };
+            } else {
+                // Use manual input
+                userName = document.getElementById('userName')?.value.trim();
+                if (!userName) {
+                    alert('يرجى إدخال اسمك أولاً أو تسجيل الدخول بـ Google');
+                    return;
+                }
+                userInfo = {
+                    name: userName,
+                    isSignedIn: false
+                };
             }
 
             const newRoomId = generateRoomId();
@@ -191,7 +342,9 @@
             sessionRooms.push(newRoomId);
             sessionStorage.setItem('validRooms', JSON.stringify(sessionRooms));
 
-            const url = `room.html?roomId=${newRoomId}&name=${encodeURIComponent(userName)}&creator=true`;
+            // Create URL with user info
+            const userParam = encodeURIComponent(JSON.stringify(userInfo));
+            const url = `room.html?roomId=${newRoomId}&user=${userParam}&creator=true`;
             window.location.href = url;
         }
 
