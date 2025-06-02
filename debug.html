@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 تشخيص ChatApp</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 تشخيص ChatApp</h1>
+        <p>هذه الصفحة تساعد في تشخيص مشاكل التطبيق</p>
+
+        <div class="test-section">
+            <h3>1. اختبار JavaScript</h3>
+            <button onclick="testJavaScript()">اختبار JavaScript</button>
+            <div id="jsTest" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. اختبار إنشاء الغرف</h3>
+            <input type="text" id="testUserName" placeholder="اسمك للاختبار" style="padding: 8px; margin: 5px;">
+            <button onclick="testCreateRoom()">اختبار إنشاء غرفة</button>
+            <div id="roomTest" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. اختبار التخزين المحلي</h3>
+            <button onclick="testLocalStorage()">اختبار LocalStorage</button>
+            <div id="storageTest" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. اختبار الروابط</h3>
+            <button onclick="testNavigation()">اختبار التنقل</button>
+            <div id="navTest" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>5. معلومات المتصفح</h3>
+            <button onclick="showBrowserInfo()">عرض معلومات المتصفح</button>
+            <div id="browserInfo" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>6. اختبار سريع للتطبيق</h3>
+            <p>اختبار مبسط لوظائف التطبيق:</p>
+            <input type="text" id="quickTestName" placeholder="اسمك" style="padding: 8px; margin: 5px;">
+            <button onclick="quickCreateRoom()">إنشاء غرفة سريع</button>
+            <div id="quickTest" class="log"></div>
+        </div>
+
+        <div class="test-section warning">
+            <h3>📋 تعليمات حل المشاكل:</h3>
+            <ul>
+                <li>إذا لم يعمل JavaScript → تحقق من إعدادات المتصفح</li>
+                <li>إذا لم تعمل الأزرار → تحقق من وجود أخطاء في Console</li>
+                <li>إذا لم يعمل التخزين → تحقق من إعدادات الخصوصية</li>
+                <li>إذا لم يعمل التنقل → تحقق من مسار الملفات</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            element.textContent += logMessage;
+            
+            // Change background color based on type
+            if (type === 'success') {
+                element.parentElement.className = 'test-section success';
+            } else if (type === 'error') {
+                element.parentElement.className = 'test-section error';
+            } else if (type === 'warning') {
+                element.parentElement.className = 'test-section warning';
+            }
+        }
+
+        function testJavaScript() {
+            const element = document.getElementById('jsTest');
+            element.textContent = '';
+            
+            try {
+                log('jsTest', '✅ JavaScript يعمل بشكل صحيح', 'success');
+                log('jsTest', `✅ تاريخ الآن: ${new Date()}`);
+                log('jsTest', `✅ Math.random(): ${Math.random()}`);
+                log('jsTest', '✅ جميع وظائف JavaScript الأساسية تعمل', 'success');
+            } catch (error) {
+                log('jsTest', `❌ خطأ في JavaScript: ${error.message}`, 'error');
+            }
+        }
+
+        function testCreateRoom() {
+            const element = document.getElementById('roomTest');
+            element.textContent = '';
+            
+            try {
+                const userName = document.getElementById('testUserName').value.trim();
+                if (!userName) {
+                    log('roomTest', '⚠️ يرجى إدخال اسم للاختبار', 'warning');
+                    return;
+                }
+
+                // Test room ID generation
+                const roomId = Math.random().toString(36).substring(2, 10);
+                log('roomTest', `✅ تم إنشاء رقم غرفة: ${roomId}`);
+
+                // Test localStorage
+                const rooms = JSON.parse(localStorage.getItem('validRooms') || '[]');
+                rooms.push(roomId);
+                localStorage.setItem('validRooms', JSON.stringify(rooms));
+                log('roomTest', '✅ تم حفظ الغرفة في التخزين المحلي');
+
+                // Test URL generation
+                const url = `room.html?roomId=${roomId}&name=${encodeURIComponent(userName)}&creator=true`;
+                log('roomTest', `✅ تم إنشاء الرابط: ${url}`);
+                
+                log('roomTest', '✅ جميع وظائف إنشاء الغرف تعمل بشكل صحيح', 'success');
+            } catch (error) {
+                log('roomTest', `❌ خطأ في إنشاء الغرفة: ${error.message}`, 'error');
+            }
+        }
+
+        function testLocalStorage() {
+            const element = document.getElementById('storageTest');
+            element.textContent = '';
+            
+            try {
+                // Test localStorage availability
+                if (typeof(Storage) !== "undefined") {
+                    log('storageTest', '✅ LocalStorage متاح');
+                } else {
+                    log('storageTest', '❌ LocalStorage غير متاح', 'error');
+                    return;
+                }
+
+                // Test write
+                localStorage.setItem('test', 'ChatApp Test');
+                log('storageTest', '✅ تم الكتابة في LocalStorage');
+
+                // Test read
+                const testValue = localStorage.getItem('test');
+                if (testValue === 'ChatApp Test') {
+                    log('storageTest', '✅ تم القراءة من LocalStorage بنجاح');
+                } else {
+                    log('storageTest', '❌ فشل في القراءة من LocalStorage', 'error');
+                }
+
+                // Test JSON operations
+                const testObj = { rooms: ['test1', 'test2'] };
+                localStorage.setItem('testObj', JSON.stringify(testObj));
+                const retrievedObj = JSON.parse(localStorage.getItem('testObj'));
+                
+                if (retrievedObj.rooms.length === 2) {
+                    log('storageTest', '✅ تم حفظ واسترجاع JSON بنجاح');
+                } else {
+                    log('storageTest', '❌ فشل في معالجة JSON', 'error');
+                }
+
+                // Cleanup
+                localStorage.removeItem('test');
+                localStorage.removeItem('testObj');
+                
+                log('storageTest', '✅ جميع اختبارات التخزين نجحت', 'success');
+            } catch (error) {
+                log('storageTest', `❌ خطأ في التخزين المحلي: ${error.message}`, 'error');
+            }
+        }
+
+        function testNavigation() {
+            const element = document.getElementById('navTest');
+            element.textContent = '';
+            
+            try {
+                log('navTest', `✅ الموقع الحالي: ${window.location.href}`);
+                log('navTest', `✅ المضيف: ${window.location.host}`);
+                log('navTest', `✅ البروتوكول: ${window.location.protocol}`);
+                
+                // Test URL construction
+                const testUrl = `room.html?roomId=test123&name=${encodeURIComponent('اختبار')}`;
+                log('navTest', `✅ رابط اختبار: ${testUrl}`);
+                
+                // Test encodeURIComponent
+                const encoded = encodeURIComponent('اسم عربي');
+                log('navTest', `✅ تشفير النص العربي: ${encoded}`);
+                
+                log('navTest', '✅ جميع اختبارات التنقل نجحت', 'success');
+            } catch (error) {
+                log('navTest', `❌ خطأ في التنقل: ${error.message}`, 'error');
+            }
+        }
+
+        function showBrowserInfo() {
+            const element = document.getElementById('browserInfo');
+            element.textContent = '';
+            
+            log('browserInfo', `المتصفح: ${navigator.userAgent}`);
+            log('browserInfo', `اللغة: ${navigator.language}`);
+            log('browserInfo', `الكوكيز مفعلة: ${navigator.cookieEnabled}`);
+            log('browserInfo', `JavaScript مفعل: نعم`);
+            log('browserInfo', `حجم الشاشة: ${screen.width}x${screen.height}`);
+            log('browserInfo', `حجم النافذة: ${window.innerWidth}x${window.innerHeight}`);
+        }
+
+        function quickCreateRoom() {
+            const element = document.getElementById('quickTest');
+            element.textContent = '';
+            
+            const userName = document.getElementById('quickTestName').value.trim();
+            if (!userName) {
+                log('quickTest', '⚠️ يرجى إدخال اسمك أولاً', 'warning');
+                return;
+            }
+
+            try {
+                // Simulate the exact same process as the main app
+                const newRoomId = Math.random().toString(36).substring(2, 10);
+                log('quickTest', `1. تم إنشاء رقم الغرفة: ${newRoomId}`);
+
+                const rooms = JSON.parse(localStorage.getItem('validRooms') || '[]');
+                rooms.push(newRoomId);
+                localStorage.setItem('validRooms', JSON.stringify(rooms));
+                log('quickTest', '2. تم حفظ الغرفة في التخزين المحلي');
+
+                const url = `room.html?roomId=${newRoomId}&name=${encodeURIComponent(userName)}&creator=true`;
+                log('quickTest', `3. تم إنشاء الرابط: ${url}`);
+                
+                log('quickTest', '✅ الاختبار السريع نجح! يمكنك نسخ الرابط أعلاه واختباره', 'success');
+                
+                // Create a clickable link
+                const linkElement = document.createElement('a');
+                linkElement.href = url;
+                linkElement.textContent = 'اضغط هنا لاختبار الغرفة';
+                linkElement.style.display = 'block';
+                linkElement.style.marginTop = '10px';
+                linkElement.style.color = '#007bff';
+                document.getElementById('quickTest').appendChild(linkElement);
+                
+            } catch (error) {
+                log('quickTest', `❌ فشل الاختبار السريع: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run basic tests on page load
+        window.addEventListener('load', function() {
+            console.log('Debug page loaded');
+            testJavaScript();
+        });
+    </script>
+</body>
+</html>

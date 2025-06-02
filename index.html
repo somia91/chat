@@ -166,37 +166,13 @@
         </div>
     </div>
 
-    <!-- Firebase SDK -->
-    <script type="module">
-        // Import Firebase modules
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getDatabase, ref, set, get, child } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
-
-        // Firebase configuration (استخدم إعداداتك الخاصة)
-        const firebaseConfig = {
-            apiKey: "demo-api-key",
-            authDomain: "chat-app-demo.firebaseapp.com",
-            databaseURL: "https://chat-app-demo-default-rtdb.firebaseio.com",
-            projectId: "chat-app-demo",
-            storageBucket: "chat-app-demo.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abcdef123456"
-        };
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const database = getDatabase(app);
-
-        // Make functions global
-        window.createRoom = createRoom;
-        window.joinRoom = joinRoom;
-        window.checkRoomExists = checkRoomExists;
-
+    <script>
+        // Simple room management without Firebase
         function generateRoomId() {
             return Math.random().toString(36).substring(2, 10);
         }
 
-        async function createRoom() {
+        function createRoom() {
             const userName = document.getElementById('userName').value.trim();
             if (!userName) {
                 alert('يرجى إدخال اسمك أولاً');
@@ -205,24 +181,21 @@
 
             const newRoomId = generateRoomId();
 
-            // Create room in Firebase
-            try {
-                await set(ref(database, 'rooms/' + newRoomId), {
-                    created: Date.now(),
-                    creator: userName,
-                    users: [userName],
-                    messages: [],
-                    active: true
-                });
+            // Store room in localStorage for validation
+            const rooms = JSON.parse(localStorage.getItem('validRooms') || '[]');
+            rooms.push(newRoomId);
+            localStorage.setItem('validRooms', JSON.stringify(rooms));
 
-                const url = `room.html?roomId=${newRoomId}&name=${encodeURIComponent(userName)}&creator=true`;
-                window.location.href = url;
-            } catch (error) {
-                alert('خطأ في إنشاء الغرفة. تأكد من الاتصال بالإنترنت.');
-            }
+            // Also store in sessionStorage for cross-tab sharing
+            const sessionRooms = JSON.parse(sessionStorage.getItem('validRooms') || '[]');
+            sessionRooms.push(newRoomId);
+            sessionStorage.setItem('validRooms', JSON.stringify(sessionRooms));
+
+            const url = `room.html?roomId=${newRoomId}&name=${encodeURIComponent(userName)}&creator=true`;
+            window.location.href = url;
         }
 
-        async function joinRoom() {
+        function joinRoom() {
             const userName = document.getElementById('userName').value.trim();
             const roomId = document.getElementById('roomId').value.trim();
 
@@ -231,10 +204,13 @@
                 return;
             }
 
-            // Check if room exists
-            const roomExists = await checkRoomExists(roomId);
-            if (!roomExists) {
-                alert('الغرفة غير موجودة! تأكد من رقم الغرفة.');
+            // Check if room exists in localStorage or sessionStorage
+            const localRooms = JSON.parse(localStorage.getItem('validRooms') || '[]');
+            const sessionRooms = JSON.parse(sessionStorage.getItem('validRooms') || '[]');
+            const allRooms = [...localRooms, ...sessionRooms];
+
+            if (!allRooms.includes(roomId)) {
+                alert('❌ الغرفة غير موجودة!\n\nتأكد من رقم الغرفة أو أطلب من منشئ الغرفة إرسال الرابط مرة أخرى.');
                 return;
             }
 
@@ -242,18 +218,6 @@
             window.location.href = url;
         }
 
-        async function checkRoomExists(roomId) {
-            try {
-                const snapshot = await get(child(ref(database), `rooms/${roomId}`));
-                return snapshot.exists() && snapshot.val().active;
-            } catch (error) {
-                console.error('Error checking room:', error);
-                return false;
-            }
-        }
-    </script>
-
-    <script>
         // Handle Enter key
         document.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
@@ -266,6 +230,14 @@
                     createRoom();
                 }
             }
+        });
+
+        // Debug function to check if JavaScript is working
+        console.log('ChatApp JavaScript loaded successfully!');
+
+        // Test button functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, buttons should work now');
         });
     </script>
 </body>
