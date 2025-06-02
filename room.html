@@ -568,8 +568,8 @@
 
         function sendMessageToFirebase(user, text, type = 'text') {
             if (!window.firebaseDatabase) {
-                // Fallback to local storage
-                addMessage(user, text, type);
+                // Fallback to localStorage sync
+                addMessageToLocalSync(user, text, type);
                 return;
             }
 
@@ -581,6 +581,118 @@
                 timestamp: Date.now()
             });
         }
+
+        // Local sync system (temporary solution)
+        function addMessageToLocalSync(user, text, type = 'text') {
+            const message = {
+                id: Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                user: user,
+                text: text,
+                timestamp: Date.now(),
+                type: type,
+                roomId: roomId
+            };
+
+            // Add to local messages
+            addMessage(user, text, type);
+
+            // Save to localStorage for sync
+            saveMessageToLocalStorage(message);
+
+            // Trigger sync event
+            triggerSyncEvent(message);
+        }
+
+        function saveMessageToLocalStorage(message) {
+            const storageKey = `chatapp_room_${roomId}`;
+            let roomMessages = JSON.parse(localStorage.getItem(storageKey) || '[]');
+
+            // Add new message
+            roomMessages.push(message);
+
+            // Keep only last 100 messages
+            if (roomMessages.length > 100) {
+                roomMessages = roomMessages.slice(-100);
+            }
+
+            localStorage.setItem(storageKey, JSON.stringify(roomMessages));
+        }
+
+        function loadMessagesFromLocalStorage() {
+            const storageKey = `chatapp_room_${roomId}`;
+            const roomMessages = JSON.parse(localStorage.getItem(storageKey) || '[]');
+
+            // Clear current messages
+            messages = [];
+
+            // Load messages from storage
+            roomMessages.forEach(msg => {
+                messages.push({
+                    id: msg.id,
+                    user: msg.user,
+                    text: msg.text,
+                    timestamp: new Date(msg.timestamp),
+                    type: msg.type
+                });
+            });
+
+            // Sort by timestamp
+            messages.sort((a, b) => a.timestamp - b.timestamp);
+            renderMessages();
+            scrollToBottom();
+        }
+
+        function triggerSyncEvent(message) {
+            // Use localStorage event to sync across tabs
+            const syncData = {
+                type: 'new_message',
+                roomId: roomId,
+                message: message,
+                timestamp: Date.now()
+            };
+
+            localStorage.setItem('chatapp_sync_event', JSON.stringify(syncData));
+
+            // Remove sync event after short delay
+            setTimeout(() => {
+                localStorage.removeItem('chatapp_sync_event');
+            }, 1000);
+        }
+
+        // Listen for sync events from other tabs
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'chatapp_sync_event' && e.newValue) {
+                try {
+                    const syncData = JSON.parse(e.newValue);
+
+                    if (syncData.type === 'new_message' && syncData.roomId === roomId) {
+                        // Check if message already exists
+                        const existingMessage = messages.find(msg => msg.id === syncData.message.id);
+
+                        if (!existingMessage) {
+                            // Add message from other tab
+                            const msg = syncData.message;
+                            messages.push({
+                                id: msg.id,
+                                user: msg.user,
+                                text: msg.text,
+                                timestamp: new Date(msg.timestamp),
+                                type: msg.type
+                            });
+
+                            // Sort and render
+                            messages.sort((a, b) => a.timestamp - b.timestamp);
+                            renderMessages();
+                            scrollToBottom();
+
+                            console.log('📨 Received synced message from other tab');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error processing sync event:', error);
+                }
+            }
+        });
 
         function sendCallNotification(targetUser, callType) {
             if (!window.firebaseDatabase) return;
@@ -602,15 +714,21 @@
             // Initialize user count
             updateUserCount();
 
-            // Add welcome message
+            // Load existing messages from localStorage
+            loadMessagesFromLocalStorage();
+
+            // Add welcome message (only if no messages exist)
             setTimeout(() => {
-                sendMessageToFirebase('النظام', `مرحباً ${userName}! انضممت للغرفة ${roomId}`, 'system');
-            }, 1500);
+                if (messages.length === 0) {
+                    sendMessageToFirebase('النظام', `مرحباً ${userName}! انضممت للغرفة ${roomId}`, 'system');
+                }
+            }, 1000);
 
             console.log('✅ Page initialized successfully');
             console.log('Room ID:', roomId);
             console.log('User Name:', userName);
             console.log('User Info:', currentUserInfo);
+            console.log('📨 Local sync enabled for cross-tab messaging');
         }
 
         // Initialize when page loads
