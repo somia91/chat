@@ -457,7 +457,6 @@
         let messagesListener = null;
         let callsListener = null;
         let usersListener = null;
-        let currentUserInfo = null;
 
         // Initialize Firebase when available
         function initializeFirebase() {
@@ -546,6 +545,13 @@
             });
         }
 
+        function updateUserCount() {
+            const userCountElement = document.getElementById('userCount');
+            if (userCountElement) {
+                userCountElement.textContent = connectedUsers.length;
+            }
+        }
+
         function addUserToRoom() {
             if (!window.firebaseDatabase) return;
 
@@ -588,13 +594,34 @@
             });
         }
 
-        // Initialize
-        document.getElementById('roomIdDisplay').textContent = roomId;
+        // Initialize page
+        function initializePage() {
+            // Set room ID display
+            document.getElementById('roomIdDisplay').textContent = roomId;
 
-        // Add welcome message
-        setTimeout(() => {
-            sendMessageToFirebase('النظام', `مرحباً ${userName}! انضممت للغرفة ${roomId}`, 'system');
-        }, 1500);
+            // Initialize user count
+            updateUserCount();
+
+            // Add welcome message
+            setTimeout(() => {
+                sendMessageToFirebase('النظام', `مرحباً ${userName}! انضممت للغرفة ${roomId}`, 'system');
+            }, 1500);
+
+            console.log('✅ Page initialized successfully');
+            console.log('Room ID:', roomId);
+            console.log('User Name:', userName);
+            console.log('User Info:', currentUserInfo);
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializePage);
+
+        // Fallback initialization
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializePage);
+        } else {
+            initializePage();
+        }
 
         function addMessage(user, text, type = 'text') {
             const message = {
