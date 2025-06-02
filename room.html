@@ -419,7 +419,31 @@
         // Get URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('roomId');
-        const userName = urlParams.get('name') || 'مجهول';
+        const userParam = urlParams.get('user');
+        const isCreator = urlParams.get('creator') === 'true';
+
+        // Parse user info
+        let currentUserInfo = null;
+        let userName = 'مجهول';
+
+        if (userParam) {
+            try {
+                currentUserInfo = JSON.parse(decodeURIComponent(userParam));
+                userName = currentUserInfo.name || 'مجهول';
+            } catch (error) {
+                console.error('Error parsing user info:', error);
+            }
+        }
+
+        // Fallback to URL name parameter
+        if (!currentUserInfo) {
+            userName = urlParams.get('name') || 'مجهول';
+            currentUserInfo = {
+                name: userName,
+                verified: false,
+                isSignedIn: false
+            };
+        }
 
         // Global variables
         let messages = [];
@@ -528,6 +552,9 @@
             const userRef = window.firebaseRef(window.firebaseDatabase, `rooms/${roomId}/users/${userName}`);
             window.firebaseSet(userRef, {
                 name: userName,
+                phone: currentUserInfo.phone || null,
+                verified: currentUserInfo.verified || false,
+                isSignedIn: currentUserInfo.isSignedIn || false,
                 joinedAt: window.firebaseServerTimestamp(),
                 online: true
             });
