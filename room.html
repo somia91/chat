@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💬 ChatApp - غرفة المحادثة</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f3f4f6;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: white;
+            padding: 16px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .video-area {
+            width: 33%;
+            background: black;
+            position: relative;
+            display: none;
+        }
+
+        .video-area.active {
+            display: block;
+        }
+
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            display: flex;
+        }
+
+        .message.own {
+            justify-content: flex-end;
+        }
+
+        .message-bubble {
+            max-width: 300px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            word-wrap: break-word;
+        }
+
+        .message-bubble.system {
+            background: #e5e7eb;
+            color: #374151;
+            text-align: center;
+        }
+
+        .message-bubble.own {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .message-bubble.other {
+            background: white;
+            color: #1f2937;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .message-user {
+            font-size: 12px;
+            opacity: 0.75;
+            margin-bottom: 4px;
+        }
+
+        .message-time {
+            font-size: 12px;
+            opacity: 0.75;
+            margin-top: 4px;
+        }
+
+        .call-controls {
+            padding: 16px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .message-input {
+            padding: 16px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #4338ca;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .input:focus {
+            outline: none;
+            border-color: #4f46e5;
+        }
+
+        .video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .local-video {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 128px;
+            height: 96px;
+            border: 2px solid white;
+            border-radius: 8px;
+        }
+
+        .audio-call-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: white;
+            text-align: center;
+        }
+
+        .end-call-btn {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .text-xl {
+            font-size: 1.25rem;
+        }
+
+        .font-bold {
+            font-weight: 700;
+        }
+
+        .text-gray-600 {
+            color: #6b7280;
+        }
+
+        .text-gray-800 {
+            color: #1f2937;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div>
+            <h1 class="text-xl font-bold text-gray-800">غرفة: <span id="roomIdDisplay"></span></h1>
+            <p class="text-gray-600">متصل: <span id="userCount">1</span> مستخدم</p>
+        </div>
+        <div>
+            <button onclick="copyRoomLink()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">
+                📋 نسخ الرابط
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Video Call Area -->
+        <div id="videoArea" class="video-area">
+            <video id="localVideo" class="video" autoplay muted></video>
+            <video id="remoteVideo" class="local-video" autoplay></video>
+            
+            <div id="audioCallDisplay" class="audio-call-display" style="display: none;">
+                <div>
+                    <div style="font-size: 4rem; margin-bottom: 16px;">🎤</div>
+                    <p>مكالمة صوتية نشطة</p>
+                </div>
+            </div>
+            
+            <div class="end-call-btn">
+                <button onclick="endCall()" class="btn btn-danger">📞</button>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-area">
+            <!-- Messages -->
+            <div id="messages" class="messages"></div>
+
+            <!-- Call Controls -->
+            <div id="callControls" class="call-controls">
+                <button onclick="startVideoCall()" class="btn btn-success">📹 مكالمة مرئية</button>
+                <button onclick="startAudioCall()" class="btn btn-primary">📞 مكالمة صوتية</button>
+            </div>
+
+            <!-- Message Input -->
+            <div class="message-input">
+                <input
+                    type="text"
+                    id="messageInput"
+                    placeholder="اكتب رسالتك..."
+                    class="input"
+                    onkeypress="handleKeyPress(event)"
+                />
+                <button onclick="sendMessage()" class="btn btn-primary">إرسال</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('roomId');
+        const userName = urlParams.get('name') || 'مجهول';
+
+        // Global variables
+        let messages = [];
+        let isVideoCall = false;
+        let isAudioCall = false;
+        let localStream = null;
+
+        // Initialize
+        document.getElementById('roomIdDisplay').textContent = roomId;
+        
+        // Add welcome message
+        addMessage('النظام', `مرحباً ${userName}! انضممت للغرفة ${roomId}`, 'system');
+
+        function addMessage(user, text, type = 'text') {
+            const message = {
+                id: Date.now(),
+                user: user,
+                text: text,
+                timestamp: new Date(),
+                type: type
+            };
+            
+            messages.push(message);
+            renderMessages();
+            scrollToBottom();
+        }
+
+        function renderMessages() {
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.innerHTML = '';
+            
+            messages.forEach(message => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${message.user === userName ? 'own' : ''}`;
+                
+                const bubbleDiv = document.createElement('div');
+                bubbleDiv.className = `message-bubble ${
+                    message.type === 'system' ? 'system' : 
+                    message.user === userName ? 'own' : 'other'
+                }`;
+                
+                let content = '';
+                if (message.type !== 'system') {
+                    content += `<div class="message-user">${message.user}</div>`;
+                }
+                content += `<div>${message.text}</div>`;
+                content += `<div class="message-time">${message.timestamp.toLocaleTimeString('ar-SA')}</div>`;
+                
+                bubbleDiv.innerHTML = content;
+                messageDiv.appendChild(bubbleDiv);
+                messagesContainer.appendChild(messageDiv);
+            });
+        }
+
+        function scrollToBottom() {
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            
+            if (text) {
+                addMessage(userName, text);
+                input.value = '';
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function startVideoCall() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: true, 
+                    audio: true 
+                });
+                
+                document.getElementById('localVideo').srcObject = localStream;
+                document.getElementById('videoArea').classList.add('active');
+                document.getElementById('callControls').style.display = 'none';
+                document.getElementById('audioCallDisplay').style.display = 'none';
+                
+                isVideoCall = true;
+                isAudioCall = false;
+                
+                addMessage('النظام', `${userName} بدأ مكالمة مرئية`, 'system');
+            } catch (error) {
+                alert('لا يمكن الوصول للكاميرا والميكروفون');
+            }
+        }
+
+        async function startAudioCall() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: false, 
+                    audio: true 
+                });
+                
+                document.getElementById('videoArea').classList.add('active');
+                document.getElementById('callControls').style.display = 'none';
+                document.getElementById('audioCallDisplay').style.display = 'flex';
+                
+                isAudioCall = true;
+                isVideoCall = false;
+                
+                addMessage('النظام', `${userName} بدأ مكالمة صوتية`, 'system');
+            } catch (error) {
+                alert('لا يمكن الوصول للميكروفون');
+            }
+        }
+
+        function endCall() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            
+            document.getElementById('videoArea').classList.remove('active');
+            document.getElementById('callControls').style.display = 'flex';
+            
+            isVideoCall = false;
+            isAudioCall = false;
+            
+            addMessage('النظام', `${userName} أنهى المكالمة`, 'system');
+        }
+
+        function copyRoomLink() {
+            const link = `${window.location.origin}/room.html?roomId=${roomId}`;
+            navigator.clipboard.writeText(link).then(() => {
+                alert('تم نسخ رابط الغرفة!');
+            }).catch(() => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = link;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('تم نسخ رابط الغرفة!');
+            });
+        }
+
+        // Redirect to home if no room ID
+        if (!roomId) {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

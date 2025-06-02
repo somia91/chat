@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💬 ChatApp - مراسلة فورية</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            width: 100%;
+            margin: 8px 0;
+        }
+
+        .btn-primary {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #4338ca;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        .input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            margin: 8px 0;
+            transition: border-color 0.3s ease;
+        }
+
+        .input:focus {
+            outline: none;
+            border-color: #4f46e5;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-3xl {
+            font-size: 1.875rem;
+        }
+
+        .font-bold {
+            font-weight: 700;
+        }
+
+        .mb-2 {
+            margin-bottom: 8px;
+        }
+
+        .mb-4 {
+            margin-bottom: 16px;
+        }
+
+        .mb-6 {
+            margin-bottom: 24px;
+        }
+
+        .text-gray-600 {
+            color: #6b7280;
+        }
+
+        .text-gray-700 {
+            color: #374151;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold mb-2">💬 ChatApp</h1>
+            <p class="text-gray-600">مراسلة فورية مع مكالمات صوتية ومرئية</p>
+        </div>
+
+        <div>
+            <label class="text-gray-700 mb-2" style="display: block;">
+                اسمك
+            </label>
+            <input
+                type="text"
+                id="userName"
+                placeholder="أدخل اسمك"
+                class="input"
+            />
+        </div>
+
+        <div style="margin-top: 16px;">
+            <button
+                onclick="createRoom()"
+                class="btn btn-primary"
+            >
+                🚀 إنشاء غرفة جديدة
+            </button>
+
+            <div class="text-center mb-4">
+                <span class="text-gray-600">أو</span>
+            </div>
+
+            <input
+                type="text"
+                id="roomId"
+                placeholder="رقم الغرفة"
+                class="input"
+            />
+            <button
+                onclick="joinRoom()"
+                class="btn btn-success"
+            >
+                🔗 الانضمام للغرفة
+            </button>
+        </div>
+
+        <div style="margin-top: 16px;" class="text-center text-gray-600">
+            <p>شارك رابط الغرفة مع أصدقائك للانضمام</p>
+        </div>
+    </div>
+
+    <script>
+        function generateRoomId() {
+            return Math.random().toString(36).substring(2, 10);
+        }
+
+        function createRoom() {
+            const userName = document.getElementById('userName').value.trim();
+            if (!userName) {
+                alert('يرجى إدخال اسمك أولاً');
+                return;
+            }
+            
+            const newRoomId = generateRoomId();
+            const url = `room.html?roomId=${newRoomId}&name=${encodeURIComponent(userName)}`;
+            window.location.href = url;
+        }
+
+        function joinRoom() {
+            const userName = document.getElementById('userName').value.trim();
+            const roomId = document.getElementById('roomId').value.trim();
+            
+            if (!userName || !roomId) {
+                alert('يرجى إدخال رقم الغرفة واسمك');
+                return;
+            }
+            
+            const url = `room.html?roomId=${roomId}&name=${encodeURIComponent(userName)}`;
+            window.location.href = url;
+        }
+
+        // Handle Enter key
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const userName = document.getElementById('userName').value.trim();
+                const roomId = document.getElementById('roomId').value.trim();
+                
+                if (roomId) {
+                    joinRoom();
+                } else if (userName) {
+                    createRoom();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
