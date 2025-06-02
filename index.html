@@ -167,37 +167,9 @@
                     class="input"
                 />
 
-                <button onclick="sendVerificationCode()" class="btn btn-primary" style="margin-top: 16px;">
-                    📱 إرسال رمز التحقق
+                <button onclick="registerWithPhone()" class="btn btn-primary" style="margin-top: 16px;">
+                    📱 تسجيل الدخول
                 </button>
-            </div>
-
-            <div id="verificationSection" style="display: none;">
-                <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
-                    <p style="color: #856404; font-size: 14px; margin: 0;">
-                        📨 تم إرسال رمز التحقق إلى <span id="sentToNumber"></span>
-                    </p>
-                </div>
-
-                <label class="text-gray-700 mb-2" style="display: block;">
-                    رمز التحقق (6 أرقام)
-                </label>
-                <input
-                    type="text"
-                    id="verificationCode"
-                    placeholder="123456"
-                    class="input"
-                    maxlength="6"
-                />
-
-                <div style="display: flex; gap: 8px; margin-top: 16px;">
-                    <button onclick="verifyCode()" class="btn btn-success" style="flex: 1;">
-                        ✅ تأكيد الرمز
-                    </button>
-                    <button onclick="resendCode()" class="btn" style="background: #6b7280; color: white;">
-                        🔄 إعادة إرسال
-                    </button>
-                </div>
             </div>
 
             <div id="successSection" style="display: none;">
@@ -212,7 +184,7 @@
                         </div>
                     </div>
                     <p style="color: #155724; font-size: 14px; margin: 8px 0 0 0;">
-                        ✅ <strong>تم التحقق:</strong> جاهز للمزامنة الحقيقية
+                        ✅ <strong>مسجل بنجاح:</strong> جاهز للمزامنة الحقيقية
                     </p>
                 </div>
 
@@ -257,11 +229,9 @@
         // Global variables
         let currentUser = null;
         let isSignedIn = false;
-        let verificationId = null;
-        let sentCode = null;
 
-        // Phone verification functions
-        function sendVerificationCode() {
+        // Phone registration function (direct, no verification)
+        function registerWithPhone() {
             const countryCode = document.getElementById('countryCode').value;
             const phoneNumber = document.getElementById('phoneNumber').value.trim();
             const userName = document.getElementById('userName').value.trim();
@@ -277,87 +247,37 @@
                 return;
             }
 
-            const fullPhone = countryCode + phoneNumber;
-
-            // Generate random verification code (6 digits)
-            sentCode = Math.floor(100000 + Math.random() * 900000).toString();
-            verificationId = Date.now().toString();
-
-            // Store user data temporarily
-            const tempUser = {
-                phone: fullPhone,
-                name: userName,
-                verificationId: verificationId,
-                code: sentCode,
-                timestamp: Date.now()
-            };
-
-            localStorage.setItem('tempUser', JSON.stringify(tempUser));
-
-            // Show verification section
-            document.getElementById('phoneInputSection').style.display = 'none';
-            document.getElementById('verificationSection').style.display = 'block';
-            document.getElementById('sentToNumber').textContent = fullPhone;
-
-            // Simulate SMS sending (in real app, this would call SMS API)
-            console.log(`📱 رمز التحقق: ${sentCode} للرقم: ${fullPhone}`);
-            alert(`📱 رمز التحقق (للاختبار): ${sentCode}\n\nفي التطبيق الحقيقي سيتم إرساله عبر SMS`);
-        }
-
-        function verifyCode() {
-            const enteredCode = document.getElementById('verificationCode').value.trim();
-            const tempUser = JSON.parse(localStorage.getItem('tempUser') || '{}');
-
-            if (!enteredCode || enteredCode.length !== 6) {
-                alert('يرجى إدخال رمز التحقق (6 أرقام)');
+            // Validate name
+            if (userName.length < 2) {
+                alert('يرجى إدخال اسم صحيح');
                 return;
             }
 
-            if (enteredCode === tempUser.code) {
-                // Verification successful
-                currentUser = {
-                    id: tempUser.phone.replace(/\+/g, ''),
-                    phone: tempUser.phone,
-                    name: tempUser.name,
-                    verified: true,
-                    verifiedAt: Date.now()
-                };
+            const fullPhone = countryCode + phoneNumber;
 
-                isSignedIn = true;
+            // Create user directly (no verification needed)
+            currentUser = {
+                id: fullPhone.replace(/\+/g, ''),
+                phone: fullPhone,
+                name: userName,
+                verified: true,
+                registeredAt: Date.now()
+            };
 
-                // Save user data
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                localStorage.removeItem('tempUser');
+            isSignedIn = true;
 
-                // Update UI
-                updateUIAfterSignIn();
+            // Save user data
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
 
-                console.log('✅ تم التحقق بنجاح:', currentUser);
-            } else {
-                alert('❌ رمز التحقق غير صحيح. حاول مرة أخرى.');
-            }
-        }
+            // Update UI
+            updateUIAfterSignIn();
 
-        function resendCode() {
-            const tempUser = JSON.parse(localStorage.getItem('tempUser') || '{}');
-
-            if (tempUser.phone) {
-                // Generate new code
-                sentCode = Math.floor(100000 + Math.random() * 900000).toString();
-                tempUser.code = sentCode;
-                tempUser.timestamp = Date.now();
-
-                localStorage.setItem('tempUser', JSON.stringify(tempUser));
-
-                console.log(`📱 رمز جديد: ${sentCode} للرقم: ${tempUser.phone}`);
-                alert(`📱 رمز التحقق الجديد: ${sentCode}`);
-            }
+            console.log('✅ تم التسجيل بنجاح:', currentUser);
         }
 
         function updateUIAfterSignIn() {
-            // Hide input sections
+            // Hide input section
             document.getElementById('phoneInputSection').style.display = 'none';
-            document.getElementById('verificationSection').style.display = 'none';
 
             // Show success section
             document.getElementById('successSection').style.display = 'block';
@@ -368,22 +288,17 @@
         function signOut() {
             currentUser = null;
             isSignedIn = false;
-            verificationId = null;
-            sentCode = null;
 
             // Clear stored data
             localStorage.removeItem('currentUser');
-            localStorage.removeItem('tempUser');
 
             // Reset UI
             document.getElementById('phoneInputSection').style.display = 'block';
-            document.getElementById('verificationSection').style.display = 'none';
             document.getElementById('successSection').style.display = 'none';
 
             // Clear inputs
             document.getElementById('phoneNumber').value = '';
             document.getElementById('userName').value = '';
-            document.getElementById('verificationCode').value = '';
         }
 
         // Check if user is already signed in
