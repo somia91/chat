@@ -306,7 +306,13 @@
     <div class="header">
         <div>
             <h1 class="text-xl font-bold text-gray-800">غرفة: <span id="roomIdDisplay"></span></h1>
-            <p class="text-gray-600">متصل: <span id="userCount">1</span> مستخدم</p>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <p class="text-gray-600">متصل: <span id="userCount">1</span> مستخدم</p>
+                <div id="connectionStatus" style="display: flex; align-items: center; gap: 5px; font-size: 12px;">
+                    <span id="connectionDot" style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span>
+                    <span id="connectionText" style="color: #6b7280;">محلي</span>
+                </div>
+            </div>
         </div>
         <div style="display: flex; gap: 8px;">
             <button onclick="copyRoomLink()" class="btn btn-primary" style="padding: 8px 16px; font-size: 14px;">
@@ -322,8 +328,8 @@
     <div class="main-content">
         <!-- Video Call Area -->
         <div id="videoArea" class="video-area">
-            <video id="localVideo" class="video" autoplay muted></video>
-            <video id="remoteVideo" class="local-video" autoplay></video>
+            <video id="remoteVideo" class="video" autoplay></video>
+            <video id="localVideo" class="local-video" autoplay muted></video>
             
             <div id="audioCallDisplay" class="audio-call-display" style="display: none;">
                 <div>
@@ -332,7 +338,9 @@
                 </div>
             </div>
             
-            <div class="end-call-btn">
+            <div class="end-call-btn" style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="toggleMute()" id="muteBtn" class="btn" style="background: #6b7280; color: white; padding: 8px 12px; font-size: 14px;">🔇 كتم</button>
+                <button onclick="toggleVideo()" id="videoBtn" class="btn" style="background: #6b7280; color: white; padding: 8px 12px; font-size: 14px;">📹 فيديو</button>
                 <button onclick="endCall()" class="btn btn-danger">📞</button>
             </div>
         </div>
@@ -341,6 +349,11 @@
         <div class="chat-area">
             <!-- Messages -->
             <div id="messages" class="messages"></div>
+
+            <!-- Typing Indicator -->
+            <div id="typingIndicator" style="display: none; padding: 10px; font-size: 14px; color: #6b7280; font-style: italic;">
+                <span id="typingText">أحمد يكتب...</span>
+            </div>
 
             <!-- Call Controls -->
             <div id="callControls" class="call-controls">
@@ -359,6 +372,7 @@
                     placeholder="اكتب رسالتك..."
                     class="input"
                     onkeypress="handleKeyPress(event)"
+                    oninput="handleTyping()"
                 />
                 <button onclick="sendMessage()" class="btn btn-primary">إرسال</button>
             </div>
@@ -389,7 +403,7 @@
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getDatabase, ref, set, push, onValue, off, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
-        // Firebase configuration - استبدل بإعداداتك
+        // Firebase configuration - استبدل بإعداداتك الحقيقية
         const firebaseConfig = {
             apiKey: "AIzaSyDemo-Replace-With-Your-Key",
             authDomain: "chatapp-demo.firebaseapp.com",
@@ -399,6 +413,10 @@
             messagingSenderId: "123456789",
             appId: "1:123456789:web:abcdef123456"
         };
+
+        // Firebase connection status
+        let firebaseConnected = false;
+        let connectionStatusElement = null;
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
@@ -450,6 +468,7 @@
         let isVideoCall = false;
         let isAudioCall = false;
         let localStream = null;
+        let remoteStream = null;
         let incomingCall = null;
         let callSound = null;
         let connectedUsers = [userName];
@@ -458,21 +477,82 @@
         let callsListener = null;
         let usersListener = null;
 
+        // WebRTC variables
+        let peerConnection = null;
+        let currentCallId = null;
+        let isCallInitiator = false;
+        let callState = 'idle'; // idle, calling, ringing, connected
+
+        // WebRTC configuration
+        const rtcConfiguration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        };
+
         // Initialize Firebase when available
         function initializeFirebase() {
             if (window.firebaseDatabase && !firebaseInitialized) {
                 firebaseInitialized = true;
+                firebaseConnected = true;
                 console.log('🔥 Firebase initialized successfully');
+
+                // Update connection status
+                updateConnectionStatus(true);
 
                 // Set up real-time listeners
                 setupMessageListener();
                 setupCallListener();
                 setupUserPresence();
+                setupTypingListener();
+                setupWebRTCSignaling();
 
                 // Add user to room
                 addUserToRoom();
+
+                // Monitor connection status
+                monitorFirebaseConnection();
             } else {
                 console.log('⚠️ Firebase not available, using local mode');
+                updateConnectionStatus(false);
+            }
+        }
+
+        // Monitor Firebase connection
+        function monitorFirebaseConnection() {
+            if (!window.firebaseDatabase) return;
+
+            const connectedRef = window.firebaseRef(window.firebaseDatabase, '.info/connected');
+            window.firebaseOnValue(connectedRef, (snapshot) => {
+                const connected = snapshot.val();
+                firebaseConnected = connected;
+                updateConnectionStatus(connected);
+
+                if (connected) {
+                    console.log('🔥 Firebase connected');
+                    // Re-add user to room when reconnected
+                    addUserToRoom();
+                } else {
+                    console.log('❌ Firebase disconnected');
+                }
+            });
+        }
+
+        // Update connection status indicator
+        function updateConnectionStatus(connected) {
+            const dot = document.getElementById('connectionDot');
+            const text = document.getElementById('connectionText');
+
+            if (connected) {
+                dot.style.background = '#10b981'; // Green
+                text.textContent = 'متصل';
+                text.style.color = '#10b981';
+            } else {
+                dot.style.background = '#ef4444'; // Red
+                text.textContent = 'محلي';
+                text.style.color = '#6b7280';
             }
         }
 
@@ -487,6 +567,8 @@
             messagesListener = window.firebaseOnValue(messagesRef, (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
+                    const previousMessageCount = messages.length;
+
                     // Clear local messages and load from Firebase
                     messages = [];
                     Object.keys(data).forEach(key => {
@@ -504,6 +586,14 @@
                     messages.sort((a, b) => a.timestamp - b.timestamp);
                     renderMessages();
                     scrollToBottom();
+
+                    // Play notification sound for new messages (not from current user)
+                    if (messages.length > previousMessageCount) {
+                        const latestMessage = messages[messages.length - 1];
+                        if (latestMessage.user !== userName && latestMessage.type !== 'system') {
+                            playMessageSound();
+                        }
+                    }
                 }
             });
         }
@@ -541,6 +631,50 @@
                 if (data) {
                     connectedUsers = Object.values(data).map(user => user.name);
                     updateUserCount();
+                }
+            });
+        }
+
+        function setupTypingListener() {
+            if (!window.firebaseDatabase) return;
+
+            const typingRef = window.firebaseRef(window.firebaseDatabase, `rooms/${roomId}/typing`);
+            window.firebaseOnValue(typingRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    // Find users who are typing (excluding current user)
+                    const typingUsers = Object.keys(data).filter(user =>
+                        user !== userName &&
+                        data[user] === true
+                    );
+
+                    showTypingIndicator(typingUsers);
+                } else {
+                    hideTypingIndicator();
+                }
+            });
+        }
+
+        function setupWebRTCSignaling() {
+            if (!window.firebaseDatabase) return;
+
+            // Listen for WebRTC signaling messages
+            const signalingRef = window.firebaseRef(window.firebaseDatabase, `rooms/${roomId}/webrtc`);
+            window.firebaseOnValue(signalingRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    Object.keys(data).forEach(async (key) => {
+                        const signal = data[key];
+
+                        // Only process signals meant for this user
+                        if (signal.target === userName && signal.sender !== userName) {
+                            await handleWebRTCSignal(signal);
+
+                            // Remove processed signal
+                            const signalRef = window.firebaseRef(window.firebaseDatabase, `rooms/${roomId}/webrtc/${key}`);
+                            window.firebaseSet(signalRef, null);
+                        }
+                    });
                 }
             });
         }
@@ -706,6 +840,78 @@
             });
         }
 
+        // WebRTC signaling functions
+        function sendWebRTCSignal(target, type, data) {
+            if (!window.firebaseDatabase) return;
+
+            const signalingRef = window.firebaseRef(window.firebaseDatabase, `rooms/${roomId}/webrtc`);
+            window.firebasePush(signalingRef, {
+                sender: userName,
+                target: target,
+                type: type,
+                data: data,
+                timestamp: Date.now()
+            });
+        }
+
+        async function handleWebRTCSignal(signal) {
+            console.log('📡 Received WebRTC signal:', signal.type);
+
+            switch (signal.type) {
+                case 'offer':
+                    await handleOffer(signal.data, signal.sender);
+                    break;
+                case 'answer':
+                    await handleAnswer(signal.data);
+                    break;
+                case 'ice-candidate':
+                    await handleIceCandidate(signal.data);
+                    break;
+                case 'call-end':
+                    handleCallEnd();
+                    break;
+                case 'call-rejected':
+                    handleCallRejected();
+                    break;
+            }
+        }
+
+        async function createPeerConnection() {
+            peerConnection = new RTCPeerConnection(rtcConfiguration);
+
+            // Handle ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate && currentCallId) {
+                    sendWebRTCSignal(currentCallId, 'ice-candidate', event.candidate);
+                }
+            };
+
+            // Handle remote stream
+            peerConnection.ontrack = (event) => {
+                console.log('📹 Received remote stream');
+                remoteStream = event.streams[0];
+
+                if (isVideoCall) {
+                    document.getElementById('remoteVideo').srcObject = remoteStream;
+                } else {
+                    // For audio calls, we still need to handle the stream
+                    const audioElement = document.createElement('audio');
+                    audioElement.srcObject = remoteStream;
+                    audioElement.autoplay = true;
+                    document.body.appendChild(audioElement);
+                }
+            };
+
+            // Add local stream to peer connection
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+            }
+
+            return peerConnection;
+        }
+
         // Initialize page
         function initializePage() {
             // Set room ID display
@@ -787,11 +993,66 @@
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
+        // WebRTC signal handlers
+        async function handleOffer(offer, sender) {
+            console.log('📞 Handling incoming call offer from:', sender);
+
+            currentCallId = sender;
+            isCallInitiator = false;
+            callState = 'ringing';
+
+            // Show incoming call notification
+            showCallNotification(sender, offer.type || 'video');
+
+            // Store the offer for when user accepts
+            incomingCall = { caller: sender, offer: offer, type: offer.type || 'video' };
+        }
+
+        async function handleAnswer(answer) {
+            console.log('✅ Received call answer');
+
+            if (peerConnection) {
+                await peerConnection.setRemoteDescription(answer);
+                callState = 'connected';
+                sendMessageToFirebase('النظام', `تم الاتصال مع ${currentCallId}`, 'system');
+            }
+        }
+
+        async function handleIceCandidate(candidate) {
+            console.log('🧊 Received ICE candidate');
+
+            if (peerConnection) {
+                await peerConnection.addIceCandidate(candidate);
+            }
+        }
+
+        function handleCallEnd() {
+            console.log('📞 Call ended by remote user');
+            endCall();
+            sendMessageToFirebase('النظام', `انتهت المكالمة مع ${currentCallId}`, 'system');
+        }
+
+        function handleCallRejected() {
+            console.log('❌ Call rejected by remote user');
+            endCall();
+            sendMessageToFirebase('النظام', `${currentCallId} رفض المكالمة`, 'system');
+        }
+
         function sendMessage() {
             const input = document.getElementById('messageInput');
             const text = input.value.trim();
 
             if (text) {
+                // Stop typing indicator
+                if (isTyping) {
+                    isTyping = false;
+                    setTypingStatus(false);
+                    if (typingTimeout) {
+                        clearTimeout(typingTimeout);
+                        typingTimeout = null;
+                    }
+                }
+
                 // Send to Firebase for real-time sync
                 sendMessageToFirebase(userName, text);
                 input.value = '';
@@ -802,6 +1063,69 @@
             if (event.key === 'Enter') {
                 sendMessage();
             }
+        }
+
+        // Typing indicator functions
+        let typingTimeout = null;
+        let isTyping = false;
+
+        function handleTyping() {
+            if (!firebaseConnected) return;
+
+            // Start typing indicator
+            if (!isTyping) {
+                isTyping = true;
+                setTypingStatus(true);
+            }
+
+            // Clear previous timeout
+            if (typingTimeout) {
+                clearTimeout(typingTimeout);
+            }
+
+            // Stop typing after 2 seconds of inactivity
+            typingTimeout = setTimeout(() => {
+                isTyping = false;
+                setTypingStatus(false);
+            }, 2000);
+        }
+
+        function setTypingStatus(typing) {
+            if (!window.firebaseDatabase) return;
+
+            const typingRef = window.firebaseRef(window.firebaseDatabase, `rooms/${roomId}/typing/${userName}`);
+            if (typing) {
+                window.firebaseSet(typingRef, true);
+            } else {
+                window.firebaseSet(typingRef, null);
+            }
+        }
+
+        function showTypingIndicator(typingUsers) {
+            const indicator = document.getElementById('typingIndicator');
+            const text = document.getElementById('typingText');
+
+            if (typingUsers.length > 0) {
+                let message = '';
+                if (typingUsers.length === 1) {
+                    message = `${typingUsers[0]} يكتب...`;
+                } else if (typingUsers.length === 2) {
+                    message = `${typingUsers[0]} و ${typingUsers[1]} يكتبان...`;
+                } else {
+                    message = `${typingUsers.length} أشخاص يكتبون...`;
+                }
+
+                text.textContent = message;
+                indicator.style.display = 'block';
+                scrollToBottom();
+            } else {
+                hideTypingIndicator();
+            }
+        }
+
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            indicator.style.display = 'none';
         }
 
         // Call notification functions
@@ -869,6 +1193,27 @@
             }
         }
 
+        // Message notification sound
+        function playMessageSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                // Different tone for messages (higher pitch, shorter)
+                oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.2);
+            } catch (error) {
+                console.log('Could not play message sound:', error);
+            }
+        }
+
         function acceptCall() {
             if (!incomingCall) return;
 
@@ -880,34 +1225,32 @@
                 startAudioCall(true); // true means accepting incoming call
             }
 
-            addMessage('النظام', `قبلت مكالمة من ${incomingCall.caller}`, 'system');
+            sendMessageToFirebase('النظام', `${userName} قبل مكالمة من ${incomingCall.caller}`, 'system');
 
-            // Simulate notifying the caller that call was accepted
-            simulateCallResponse('accepted');
+            // Clear incoming call
+            incomingCall = null;
         }
 
         function rejectCall() {
             if (!incomingCall) return;
 
             hideCallNotification();
-            addMessage('النظام', `رفضت مكالمة من ${incomingCall.caller}`, 'system');
+            sendMessageToFirebase('النظام', `${userName} رفض مكالمة من ${incomingCall.caller}`, 'system');
 
-            // Simulate notifying the caller that call was rejected
-            simulateCallResponse('rejected');
-        }
-
-        function simulateCallResponse(response) {
-            // In a real app, this would send the response to the caller
-            // For now, we'll just add a message
-            if (response === 'accepted') {
-                addMessage('النظام', 'تم قبول المكالمة - بدء الاتصال...', 'system');
-            } else {
-                addMessage('النظام', 'تم رفض المكالمة', 'system');
+            // Send rejection signal if using WebRTC
+            if (firebaseConnected && incomingCall.caller) {
+                sendWebRTCSignal(incomingCall.caller, 'call-rejected', {});
             }
+
+            incomingCall = null;
         }
+
+
 
         async function startVideoCall(isAccepting = false) {
             try {
+                console.log('🎥 Starting video call...');
+
                 localStream = await navigator.mediaDevices.getUserMedia({
                     video: true,
                     audio: true
@@ -920,19 +1263,64 @@
 
                 isVideoCall = true;
                 isAudioCall = false;
+                callState = isAccepting ? 'connected' : 'calling';
 
                 if (!isAccepting) {
-                    sendMessageToFirebase('النظام', `${userName} بدأ مكالمة مرئية`, 'system');
-                    // Send call notification to all users in room
-                    notifyAllUsersOfCall('video');
+                    // Initiating a new call
+                    if (firebaseConnected && connectedUsers.length > 1) {
+                        // Call the first other user in the room
+                        const otherUsers = connectedUsers.filter(user => user !== userName);
+                        if (otherUsers.length > 0) {
+                            currentCallId = otherUsers[0];
+                            isCallInitiator = true;
+
+                            // Create peer connection and send offer
+                            await createPeerConnection();
+                            const offer = await peerConnection.createOffer();
+                            await peerConnection.setLocalDescription(offer);
+
+                            // Send offer via Firebase
+                            sendWebRTCSignal(currentCallId, 'offer', { ...offer, type: 'video' });
+
+                            sendMessageToFirebase('النظام', `${userName} بدأ مكالمة مرئية مع ${currentCallId}`, 'system');
+                        } else {
+                            alert('لا يوجد مستخدمون آخرون في الغرفة');
+                            endCall();
+                            return;
+                        }
+                    } else {
+                        // Fallback for local mode
+                        sendMessageToFirebase('النظام', `${userName} بدأ مكالمة مرئية`, 'system');
+                        notifyAllUsersOfCall('video');
+                    }
+                } else {
+                    // Accepting an incoming call
+                    if (firebaseConnected && incomingCall) {
+                        await createPeerConnection();
+                        await peerConnection.setRemoteDescription(incomingCall.offer);
+
+                        const answer = await peerConnection.createAnswer();
+                        await peerConnection.setLocalDescription(answer);
+
+                        // Send answer back
+                        sendWebRTCSignal(incomingCall.caller, 'answer', answer);
+
+                        sendMessageToFirebase('النظام', `${userName} قبل المكالمة المرئية`, 'system');
+                    }
                 }
+
+                console.log('✅ Video call setup complete');
             } catch (error) {
+                console.error('❌ Error starting video call:', error);
                 alert('لا يمكن الوصول للكاميرا والميكروفون');
+                endCall();
             }
         }
 
         async function startAudioCall(isAccepting = false) {
             try {
+                console.log('🎤 Starting audio call...');
+
                 localStream = await navigator.mediaDevices.getUserMedia({
                     video: false,
                     audio: true
@@ -944,14 +1332,57 @@
 
                 isAudioCall = true;
                 isVideoCall = false;
+                callState = isAccepting ? 'connected' : 'calling';
 
                 if (!isAccepting) {
-                    sendMessageToFirebase('النظام', `${userName} بدأ مكالمة صوتية`, 'system');
-                    // Send call notification to all users in room
-                    notifyAllUsersOfCall('audio');
+                    // Initiating a new call
+                    if (firebaseConnected && connectedUsers.length > 1) {
+                        // Call the first other user in the room
+                        const otherUsers = connectedUsers.filter(user => user !== userName);
+                        if (otherUsers.length > 0) {
+                            currentCallId = otherUsers[0];
+                            isCallInitiator = true;
+
+                            // Create peer connection and send offer
+                            await createPeerConnection();
+                            const offer = await peerConnection.createOffer();
+                            await peerConnection.setLocalDescription(offer);
+
+                            // Send offer via Firebase
+                            sendWebRTCSignal(currentCallId, 'offer', { ...offer, type: 'audio' });
+
+                            sendMessageToFirebase('النظام', `${userName} بدأ مكالمة صوتية مع ${currentCallId}`, 'system');
+                        } else {
+                            alert('لا يوجد مستخدمون آخرون في الغرفة');
+                            endCall();
+                            return;
+                        }
+                    } else {
+                        // Fallback for local mode
+                        sendMessageToFirebase('النظام', `${userName} بدأ مكالمة صوتية`, 'system');
+                        notifyAllUsersOfCall('audio');
+                    }
+                } else {
+                    // Accepting an incoming call
+                    if (firebaseConnected && incomingCall) {
+                        await createPeerConnection();
+                        await peerConnection.setRemoteDescription(incomingCall.offer);
+
+                        const answer = await peerConnection.createAnswer();
+                        await peerConnection.setLocalDescription(answer);
+
+                        // Send answer back
+                        sendWebRTCSignal(incomingCall.caller, 'answer', answer);
+
+                        sendMessageToFirebase('النظام', `${userName} قبل المكالمة الصوتية`, 'system');
+                    }
                 }
+
+                console.log('✅ Audio call setup complete');
             } catch (error) {
+                console.error('❌ Error starting audio call:', error);
                 alert('لا يمكن الوصول للميكروفون');
+                endCall();
             }
         }
 
@@ -972,18 +1403,84 @@
         }
 
         function endCall() {
+            console.log('📞 Ending call...');
+
+            // Stop local stream
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
                 localStream = null;
             }
-            
+
+            // Stop remote stream
+            if (remoteStream) {
+                remoteStream.getTracks().forEach(track => track.stop());
+                remoteStream = null;
+            }
+
+            // Close peer connection
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+
+            // Send call end signal to other user
+            if (firebaseConnected && currentCallId && callState !== 'idle') {
+                sendWebRTCSignal(currentCallId, 'call-end', {});
+            }
+
+            // Reset UI
             document.getElementById('videoArea').classList.remove('active');
             document.getElementById('callControls').style.display = 'flex';
-            
+
+            // Clear remote video
+            const remoteVideo = document.getElementById('remoteVideo');
+            if (remoteVideo) {
+                remoteVideo.srcObject = null;
+            }
+
+            // Reset call state
             isVideoCall = false;
             isAudioCall = false;
+            callState = 'idle';
+            currentCallId = null;
+            isCallInitiator = false;
 
             sendMessageToFirebase('النظام', `${userName} أنهى المكالمة`, 'system');
+
+            console.log('✅ Call ended successfully');
+        }
+
+        // Media control functions
+        function toggleMute() {
+            if (localStream) {
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioTrack.enabled = !audioTrack.enabled;
+                    const muteBtn = document.getElementById('muteBtn');
+                    if (muteBtn) {
+                        muteBtn.textContent = audioTrack.enabled ? '🔇 كتم الصوت' : '🔊 تشغيل الصوت';
+                        muteBtn.style.background = audioTrack.enabled ? '#6b7280' : '#dc3545';
+                    }
+
+                    sendMessageToFirebase('النظام', `${userName} ${audioTrack.enabled ? 'شغل' : 'كتم'} الصوت`, 'system');
+                }
+            }
+        }
+
+        function toggleVideo() {
+            if (localStream) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    videoTrack.enabled = !videoTrack.enabled;
+                    const videoBtn = document.getElementById('videoBtn');
+                    if (videoBtn) {
+                        videoBtn.textContent = videoTrack.enabled ? '📹 إيقاف الفيديو' : '📷 تشغيل الفيديو';
+                        videoBtn.style.background = videoTrack.enabled ? '#6b7280' : '#dc3545';
+                    }
+
+                    sendMessageToFirebase('النظام', `${userName} ${videoTrack.enabled ? 'شغل' : 'أوقف'} الفيديو`, 'system');
+                }
+            }
         }
 
         function copyRoomLink() {

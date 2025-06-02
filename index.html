@@ -356,11 +356,15 @@
         }
 
         function joinRoom() {
-            const userName = document.getElementById('userName').value.trim();
             const roomId = document.getElementById('roomId').value.trim();
 
-            if (!userName || !roomId) {
-                alert('يرجى إدخال رقم الغرفة واسمك');
+            if (!roomId) {
+                alert('يرجى إدخال رقم الغرفة');
+                return;
+            }
+
+            if (!isSignedIn || !currentUser) {
+                alert('يرجى التسجيل بالهاتف أولاً للانضمام للغرفة');
                 return;
             }
 
@@ -374,7 +378,17 @@
                 return;
             }
 
-            const url = `room.html?roomId=${roomId}&name=${encodeURIComponent(userName)}`;
+            // Use registered user info
+            const userInfo = {
+                id: currentUser.id,
+                name: currentUser.name,
+                phone: currentUser.phone,
+                verified: true,
+                isSignedIn: true
+            };
+
+            const userParam = encodeURIComponent(JSON.stringify(userInfo));
+            const url = `room.html?roomId=${roomId}&user=${userParam}`;
             window.location.href = url;
         }
 
